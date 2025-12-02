@@ -1,0 +1,1189 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Facebook Giveaway Picker - LOKI</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <style>
+    :root {
+      --bg-dark: #050510;
+      --glass-light: rgba(255, 255, 255, 0.06);
+      --glass-border: rgba(255, 255, 255, 0.2);
+      --accent: #00f5ff;
+      --accent-soft: rgba(0, 245, 255, 0.25);
+      --accent-pink: #ff00c3;
+      --accent-yellow: #ffe66d;
+      --text-main: #f5f7ff;
+      --text-muted: #9297c4;
+      --error: #ff4d6a;
+      --success: #1be7a4;
+      --radius-xl: 24px;
+      --radius-lg: 18px;
+      --radius-md: 12px;
+      --shadow-neon: 0 0 25px rgba(0, 245, 255, 0.55);
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      min-height: 100vh;
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI",
+        sans-serif;
+      background:
+        radial-gradient(circle at top left, #150535, transparent 60%),
+        radial-gradient(circle at bottom right, #051a3a, transparent 55%),
+        linear-gradient(135deg, #020617, #02061b);
+      color: var(--text-main);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 24px;
+      overflow-x: hidden;
+    }
+
+    .app {
+      width: 100%;
+      max-width: 1100px;
+      position: relative;
+      z-index: 1;
+    }
+
+    /* Glow orbs in background */
+    .orb {
+      position: fixed;
+      border-radius: 50%;
+      filter: blur(40px);
+      opacity: 0.35;
+      z-index: 0;
+      pointer-events: none;
+    }
+    .orb.orb-1 {
+      width: 260px; height: 260px;
+      background: #00f5ff;
+      top: -60px; left: -40px;
+    }
+    .orb.orb-2 {
+      width: 320px; height: 320px;
+      background: #ff00c3;
+      bottom: -80px; right: -40px;
+    }
+
+    .glass {
+      background: linear-gradient(
+          135deg,
+          rgba(255, 255, 255, 0.12),
+          rgba(255, 255, 255, 0.03)
+        );
+      border-radius: var(--radius-xl);
+      border: 1px solid var(--glass-border);
+      box-shadow: 0 20px 40px rgba(0, 0, 0, 0.8);
+      backdrop-filter: blur(18px);
+      -webkit-backdrop-filter: blur(18px);
+      padding: 20px 22px 22px;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .glass::before {
+      content: "";
+      position: absolute;
+      inset: 0;
+      background: radial-gradient(circle at top, rgba(255, 255, 255, 0.18), transparent 55%);
+      mix-blend-mode: screen;
+      opacity: 0.7;
+      pointer-events: none;
+    }
+
+    .glass-inner {
+      position: relative;
+      z-index: 1;
+    }
+
+    .header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+      margin-bottom: 18px;
+    }
+
+    .title-block {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+
+    .logo-text {
+      font-weight: 800;
+      font-size: 24px;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      display: inline-flex;
+      align-items: center;
+      gap: 10px;
+      text-shadow: 0 0 18px rgba(0, 245, 255, 0.8);
+    }
+
+    .logo-pill {
+      font-size: 11px;
+      padding: 3px 9px;
+      border-radius: 999px;
+      border: 1px solid var(--accent-soft);
+      color: var(--accent);
+      background: rgba(0, 0, 0, 0.55);
+      box-shadow: 0 0 15px rgba(0, 245, 255, 0.35);
+    }
+
+    .subtitle {
+      font-size: 13px;
+      color: var(--text-muted);
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .subtitle span.author {
+      color: var(--accent);
+      font-weight: 600;
+    }
+
+    .badge {
+      font-size: 11px;
+      padding: 4px 10px;
+      border-radius: 999px;
+      border: 1px solid rgba(255, 255, 255, 0.22);
+      background: radial-gradient(circle at top left, rgba(0, 245, 255, 0.32), transparent 60%);
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .layout {
+      display: grid;
+      grid-template-columns: minmax(0, 1.1fr) minmax(0, 1.1fr);
+      gap: 18px;
+      align-items: flex-start;
+    }
+
+    @media (max-width: 840px) {
+      .layout {
+        grid-template-columns: minmax(0, 1fr);
+      }
+    }
+
+    .glass-card {
+      border-radius: var(--radius-lg);
+      background: rgba(7, 9, 30, 0.7);
+      border: 1px solid rgba(255, 255, 255, 0.14);
+      padding: 14px 14px 16px;
+      box-shadow: 0 12px 28px rgba(0, 0, 0, 0.7);
+      position: relative;
+      overflow: hidden;
+    }
+
+    .glass-card::before {
+      content: "";
+      position: absolute;
+      inset: 0;
+      background: linear-gradient(
+        135deg,
+        rgba(0, 245, 255, 0.14),
+        transparent 40%,
+        rgba(255, 0, 195, 0.16)
+      );
+      opacity: 0.7;
+      mix-blend-mode: soft-light;
+      pointer-events: none;
+    }
+
+    .card-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 12px;
+      position: relative;
+      z-index: 1;
+    }
+
+    .card-title {
+      font-size: 14px;
+      font-weight: 600;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      color: #e5e7ff;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .card-title-dot {
+      width: 7px;
+      height: 7px;
+      border-radius: 50%;
+      background: var(--accent);
+      box-shadow: 0 0 14px rgba(0, 245, 255, 0.7);
+    }
+
+    .card-subtitle {
+      font-size: 11px;
+      color: var(--text-muted);
+    }
+
+    .field-group {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+
+    .field-row {
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+
+    .field {
+      flex: 1;
+      min-width: 0;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+
+    label {
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
+      color: var(--text-muted);
+    }
+
+    input[type="text"],
+    input[type="number"] {
+      width: 100%;
+      border-radius: 999px;
+      border: 1px solid rgba(148, 163, 255, 0.55);
+      background: radial-gradient(circle at top left, rgba(255, 255, 255, 0.1), rgba(15, 23, 42, 0.9));
+      padding: 9px 12px;
+      color: var(--text-main);
+      outline: none;
+      font-size: 13px;
+      transition: border 0.18s ease, box-shadow 0.18s ease, transform 0.08s ease;
+      box-shadow: 0 0 0 0 rgba(0, 245, 255, 0.2);
+    }
+
+    input::placeholder {
+      color: rgba(148, 163, 255, 0.6);
+    }
+
+    input:focus {
+      border-color: var(--accent);
+      box-shadow: 0 0 0 1px rgba(0, 245, 255, 0.45), var(--shadow-neon);
+      transform: translateY(-1px);
+    }
+
+    .btn {
+      position: relative;
+      border-radius: 999px;
+      border: 1px solid rgba(148, 163, 255, 0.8);
+      padding: 9px 18px;
+      font-size: 13px;
+      font-weight: 600;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      background: radial-gradient(circle at top left, #00f5ff, #0077ff);
+      color: #020617;
+      cursor: pointer;
+      overflow: hidden;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      box-shadow: 0 12px 25px rgba(0, 245, 255, 0.4);
+      transition: transform 0.12s ease, box-shadow 0.12s ease, filter 0.12s ease;
+    }
+
+    .btn span.icon {
+      font-size: 16px;
+    }
+
+    .btn:hover {
+      transform: translateY(-1px) translateZ(0);
+      filter: brightness(1.09);
+      box-shadow: 0 16px 30px rgba(0, 245, 255, 0.6);
+    }
+
+    .btn:active {
+      transform: translateY(1px) scale(0.98);
+      box-shadow: 0 8px 18px rgba(0, 245, 255, 0.38);
+    }
+
+    .btn.secondary {
+      background: radial-gradient(circle at top left, rgba(15, 23, 42, 0.9), rgba(15, 23, 42, 0.95));
+      color: var(--text-main);
+      border-color: rgba(148, 163, 255, 0.6);
+      box-shadow: 0 10px 16px rgba(15, 23, 42, 0.9);
+    }
+
+    .btn.secondary:hover {
+      box-shadow: 0 12px 22px rgba(15, 23, 42, 0.95);
+      filter: brightness(1.04);
+    }
+
+    .btn:disabled {
+      cursor: not-allowed;
+      opacity: 0.5;
+      box-shadow: none;
+      transform: none;
+    }
+
+    /* Ripple effect */
+    .btn,
+    .ripple {
+      position: relative;
+      overflow: hidden;
+    }
+
+    .ripple-circle {
+      position: absolute;
+      border-radius: 50%;
+      transform: scale(0);
+      background: radial-gradient(circle, rgba(255, 255, 255, 0.75) 0%, rgba(255, 255, 255, 0) 60%);
+      animation: ripple-animation 0.6s ease-out;
+      pointer-events: none;
+      opacity: 0.9;
+    }
+
+    @keyframes ripple-animation {
+      to {
+        transform: scale(5);
+        opacity: 0;
+      }
+    }
+
+    /* Status toast / line */
+    .status-line {
+      margin-top: 10px;
+      font-size: 12px;
+      color: var(--text-muted);
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .status-dot {
+      width: 7px;
+      height: 7px;
+      border-radius: 50%;
+    }
+
+    .status-dot.idle {
+      background: rgba(148, 163, 255, 0.6);
+    }
+    .status-dot.ok {
+      background: var(--success);
+      box-shadow: 0 0 12px rgba(27, 231, 164, 0.8);
+    }
+    .status-dot.error {
+      background: var(--error);
+      box-shadow: 0 0 12px rgba(255, 77, 106, 0.8);
+    }
+    .status-dot.loading {
+      background: var(--accent-yellow);
+      box-shadow: 0 0 12px rgba(255, 230, 109, 0.7);
+    }
+
+    .status-text-strong {
+      color: #e5e7ff;
+    }
+
+    /* Post preview */
+    .post-preview {
+      display: flex;
+      gap: 12px;
+      position: relative;
+      z-index: 1;
+    }
+
+    .post-image-wrap {
+      width: 100px;
+      height: 100px;
+      border-radius: var(--radius-md);
+      overflow: hidden;
+      border: 1px solid rgba(148, 163, 255, 0.6);
+      box-shadow: 0 14px 24px rgba(15, 23, 42, 0.9);
+      flex-shrink: 0;
+      position: relative;
+    }
+
+    .post-image-wrap::after {
+      content: "";
+      position: absolute;
+      inset: 0;
+      background: radial-gradient(circle at center, transparent 40%, rgba(0, 0, 0, 0.65));
+      mix-blend-mode: soft-light;
+    }
+
+    .post-image-wrap img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      display: block;
+      transform: scale(1.02);
+      transition: transform 0.3s ease;
+    }
+
+    .post-image-wrap:hover img {
+      transform: scale(1.06);
+    }
+
+    .post-meta {
+      flex: 1;
+      min-width: 0;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      font-size: 12px;
+    }
+
+    .owner-line {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 2px;
+    }
+
+    .owner-avatar {
+      width: 26px;
+      height: 26px;
+      border-radius: 999px;
+      overflow: hidden;
+      border: 1px solid rgba(148, 163, 255, 0.7);
+      flex-shrink: 0;
+    }
+
+    .owner-avatar img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+    }
+
+    .owner-name {
+      font-weight: 600;
+      font-size: 13px;
+    }
+
+    .owner-username {
+      font-size: 11px;
+      color: var(--text-muted);
+    }
+
+    .post-caption {
+      color: #e5e7ff;
+      max-height: 60px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      display: -webkit-box;
+      -webkit-line-clamp: 3;
+      -webkit-box-orient: vertical;
+      line-height: 1.3;
+    }
+
+    .post-stats {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-top: 6px;
+    }
+
+    .pill {
+      padding: 3px 8px;
+      border-radius: 999px;
+      border: 1px solid rgba(148, 163, 255, 0.6);
+      font-size: 11px;
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      color: var(--text-muted);
+      background: rgba(15, 23, 42, 0.82);
+    }
+
+    .pill strong {
+      color: #e5e7ff;
+    }
+
+    /* Winners section */
+    .winners-container {
+      margin-top: 6px;
+      position: relative;
+      z-index: 1;
+    }
+
+    .winners-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 10px;
+      gap: 8px;
+    }
+
+    .winners-title {
+      font-size: 13px;
+      font-weight: 600;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: #e5e7ff;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .winners-sub {
+      font-size: 11px;
+      color: var(--text-muted);
+    }
+
+    .winners-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+      gap: 10px;
+    }
+
+    .winner-card {
+      position: relative;
+      border-radius: 18px;
+      padding: 9px 9px 10px;
+      background: radial-gradient(circle at top left, rgba(0, 245, 255, 0.12), rgba(15, 23, 42, 0.95));
+      border: 1px solid rgba(148, 163, 255, 0.8);
+      box-shadow: 0 12px 22px rgba(10, 18, 54, 0.95), 0 0 18px rgba(0, 245, 255, 0.4);
+      overflow: hidden;
+      opacity: 0;
+      transform: translateY(18px) scale(0.96);
+      animation: winner-pop 0.6s ease-out forwards;
+    }
+
+    @keyframes winner-pop {
+      0% {
+        opacity: 0;
+        transform: translateY(18px) scale(0.96);
+        box-shadow: 0 0 0 rgba(0, 0, 0, 0.8);
+      }
+      60% {
+        opacity: 1;
+        transform: translateY(-4px) scale(1.02);
+        box-shadow: 0 18px 30px rgba(0, 0, 0, 0.95), 0 0 24px rgba(0, 245, 255, 0.75);
+      }
+      100% {
+        opacity: 1;
+        transform: translateY(0) scale(1);
+        box-shadow: 0 14px 26px rgba(0, 0, 0, 0.9), 0 0 18px rgba(0, 245, 255, 0.55);
+      }
+    }
+
+    .winner-rank {
+      position: absolute;
+      top: 6px;
+      right: 10px;
+      font-weight: 700;
+      font-size: 11px;
+      color: var(--accent-yellow);
+      text-shadow: 0 0 12px rgba(255, 230, 109, 0.95);
+    }
+
+    .winner-top {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 4px;
+    }
+
+    .winner-avatar {
+      width: 34px;
+      height: 34px;
+      border-radius: 999px;
+      border: 1px solid rgba(0, 245, 255, 0.9);
+      overflow: hidden;
+      box-shadow: 0 0 18px rgba(0, 245, 255, 0.7);
+      flex-shrink: 0;
+    }
+
+    .winner-avatar img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      display: block;
+    }
+
+    .winner-name {
+      font-size: 13px;
+      font-weight: 600;
+      color: #f9fafb;
+    }
+
+    .winner-username {
+      font-size: 11px;
+      color: var(--accent);
+    }
+
+    .winner-text {
+      font-size: 12px;
+      color: #e5e7ff;
+      line-height: 1.35;
+      padding-left: 2px;
+      margin-top: 2px;
+    }
+
+    .winner-text span {
+      color: var(--accent-yellow);
+    }
+
+    .winner-footer {
+      margin-top: 4px;
+      font-size: 11px;
+      color: var(--text-muted);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 8px;
+    }
+
+    /* Tiny confetti */
+    .confetti {
+      position: absolute;
+      width: 6px;
+      height: 10px;
+      border-radius: 2px;
+      opacity: 0;
+      pointer-events: none;
+      animation: confetti-fall 1.2s ease-out forwards;
+    }
+
+    @keyframes confetti-fall {
+      0% {
+        opacity: 1;
+        transform: translateY(-10px) rotateZ(0deg);
+      }
+      100% {
+        opacity: 0;
+        transform: translateY(40px) rotateZ(220deg);
+      }
+    }
+
+    .footer-line {
+      margin-top: 14px;
+      font-size: 11px;
+      text-align: right;
+      color: var(--text-muted);
+    }
+
+    .footer-line span {
+      color: var(--accent);
+      font-weight: 600;
+    }
+
+    .hint {
+      font-size: 11px;
+      color: var(--text-muted);
+      margin-top: 4px;
+    }
+
+    .hint strong {
+      color: #e5e7ff;
+    }
+  </style>
+</head>
+<body>
+  <div class="orb orb-1"></div>
+  <div class="orb orb-2"></div>
+
+  <div class="app">
+    <div class="glass">
+      <div class="glass-inner">
+        <header class="header">
+          <div class="title-block">
+            <div class="logo-text">
+              <span>FB GW PICKER</span>
+              <span class="logo-pill">NEON • GLASS • LIVE</span>
+            </div>
+            <div class="subtitle">
+              <span>Facebook Giveaway Comments Picker</span>
+              <span class="author">by LOKI</span>
+            </div>
+          </div>
+          <div class="badge">
+            <span>🎁 Auto random winners • Avatar preview</span>
+          </div>
+        </header>
+
+        <div class="layout">
+          <!-- Left: URL + Post Preview -->
+          <section class="glass-card">
+            <div class="card-header">
+              <div>
+                <div class="card-title">
+                  <span class="card-title-dot"></span>
+                  <span>1. Post Link &amp; Info</span>
+                </div>
+                <div class="card-subtitle">FB Post URL → Get GW data from WASK API</div>
+              </div>
+            </div>
+
+            <div class="field-group">
+              <div class="field">
+                <label for="postUrl">Facebook Post URL</label>
+                <input
+                  id="postUrl"
+                  type="text"
+                  placeholder="https://www.facebook.com/..."
+                  autocomplete="off"
+                />
+              </div>
+              <div class="field-row" style="justify-content: space-between; align-items: center;">
+                <button id="fetchBtn" class="btn ripple">
+                  <span class="icon">🔍</span>
+                  <span>Get GW Data</span>
+                </button>
+                <div class="hint">
+                  <strong>Note:</strong> Uses <code>/v1/giveaway/v2/start</code> endpoint.
+                </div>
+              </div>
+            </div>
+
+            <div class="status-line" id="startStatus">
+              <span class="status-dot idle" id="startStatusDot"></span>
+              <span id="startStatusText">Waiting for post URL…</span>
+            </div>
+
+            <hr style="border: none; border-top: 1px dashed rgba(148, 163, 255, 0.35); margin: 12px 0 10px;" />
+
+            <div class="post-preview" id="postPreview" style="opacity: 0.4; filter: grayscale(0.4);">
+              <div class="post-image-wrap">
+                <img id="postImg" src="https://via.placeholder.com/300x300/020617/4b5563?text=FB+Post" alt="Post image" />
+              </div>
+              <div class="post-meta">
+                <div class="owner-line">
+                  <div class="owner-avatar">
+                    <img
+                      id="ownerAvatar"
+                      src="https://via.placeholder.com/80x80/020617/4b5563?text=FB"
+                      alt="Owner avatar"
+                    />
+                  </div>
+                  <div>
+                    <div class="owner-name" id="ownerFullName">Owner name</div>
+                    <div class="owner-username" id="ownerUsername">@facebook</div>
+                  </div>
+                </div>
+                <div class="post-caption" id="postCaption">
+                  Post caption will appear here after fetching giveaway data from API…
+                </div>
+                <div class="post-stats">
+                  <div class="pill">👍 <strong id="likeCount">0</strong> likes</div>
+                  <div class="pill">💬 <strong id="commentCount">0</strong> comments</div>
+                  <div class="pill">📅 <span id="createdTime">--/--/----</span></div>
+                  <div class="pill">🆔 <span id="ownerId">user id</span></div>
+                </div>
+              </div>
+            </div>
+          </section>
+
+  <!-- Right: Options + Winners -->
+          <section class="glass-card">
+            <div class="card-header">
+              <div>
+                <div class="card-title">
+                  <span class="card-title-dot"></span>
+                  <span>2. Picker Options &amp; Winners</span>
+                </div>
+                <div class="card-subtitle">Set winner &amp; mention counts → Pick winners 🎉</div>
+              </div>
+            </div>
+
+            <div class="field-group">
+              <div class="field-row">
+                <div class="field">
+                  <label for="winnerCount">Number of Winners</label>
+                  <input
+                    id="winnerCount"
+                    type="number"
+                    min="1"
+                    value="5"
+                    autocomplete="off"
+                  />
+                </div>
+                <div class="field">
+                  <label for="mentionCount">Minimum Mentions</label>
+                  <input
+                    id="mentionCount"
+                    type="number"
+                    min="0"
+                    value="0"
+                    autocomplete="off"
+                  />
+                </div>
+              </div>
+              <div class="field-row" style="justify-content: space-between; align-items: center;">
+                <button id="pickBtn" class="btn secondary ripple" disabled>
+                  <span class="icon">🏆</span>
+                  <span>Pick Winners</span>
+                </button>
+                <div class="hint">
+                  Uses <code>/v1/giveaway/v2/options</code> + token.
+                </div>
+              </div>
+            </div>
+
+            <div class="status-line" id="pickStatus">
+              <span class="status-dot idle" id="pickStatusDot"></span>
+              <span id="pickStatusText">Waiting for giveaway token…</span>
+            </div>
+
+            <div class="winners-container">
+              <div class="winners-header">
+                <div class="winners-title">
+                  <span>Winner List</span>
+                </div>
+                <div class="winners-sub" id="winnerSubLabel">No winners yet.</div>
+              </div>
+              <div class="winners-grid" id="winnersGrid">
+                <!-- Winner cards will be injected here -->
+              </div>
+            </div>
+          </section>
+        </div>
+
+        <div class="footer-line">
+          _👨‍💻 script by <span>LOKI</span> ❤️ – Web UI by <span>HTML+CSS+JS</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // ------------------------------
+    // Config
+    // ------------------------------
+    const API_BASE = "http://100.82.27.226:5000";
+
+    // ------------------------------
+    // Elements
+    // ------------------------------
+    const postUrlInput = document.getElementById("postUrl");
+    const fetchBtn = document.getElementById("fetchBtn");
+    const pickBtn = document.getElementById("pickBtn");
+
+    const startStatusText = document.getElementById("startStatusText");
+    const startStatusDot = document.getElementById("startStatusDot");
+    const pickStatusText = document.getElementById("pickStatusText");
+    const pickStatusDot = document.getElementById("pickStatusDot");
+
+    const postPreview = document.getElementById("postPreview");
+    const postImg = document.getElementById("postImg");
+    const ownerAvatar = document.getElementById("ownerAvatar");
+    const ownerFullName = document.getElementById("ownerFullName");
+    const ownerUsername = document.getElementById("ownerUsername");
+    const postCaption = document.getElementById("postCaption");
+    const likeCount = document.getElementById("likeCount");
+    const commentCount = document.getElementById("commentCount");
+    const createdTime = document.getElementById("createdTime");
+    const ownerId = document.getElementById("ownerId");
+
+    const winnerCountInput = document.getElementById("winnerCount");
+    const mentionCountInput = document.getElementById("mentionCount");
+    const winnersGrid = document.getElementById("winnersGrid");
+    const winnerSubLabel = document.getElementById("winnerSubLabel");
+
+    let gwToken = null;
+
+    // ------------------------------
+    // Helpers
+    // ------------------------------
+    function setStatus(statusDotEl, statusTextEl, type, text) {
+      statusDotEl.classList.remove("idle", "ok", "error", "loading");
+      statusDotEl.classList.add(type);
+      statusTextEl.textContent = text;
+    }
+
+    function createRipple(event) {
+      const button = event.currentTarget;
+      const rect = button.getBoundingClientRect();
+      const circle = document.createElement("span");
+      const diameter = Math.max(rect.width, rect.height);
+      const radius = diameter / 2;
+
+      circle.style.width = circle.style.height = `${diameter}px`;
+      circle.style.left = `${event.clientX - rect.left - radius}px`;
+      circle.style.top = `${event.clientY - rect.top - radius}px`;
+      circle.classList.add("ripple-circle");
+
+      const existingRipple = button.querySelector(".ripple-circle");
+      if (existingRipple) {
+        existingRipple.remove();
+      }
+
+      button.appendChild(circle);
+
+      circle.addEventListener("animationend", () => {
+        circle.remove();
+      });
+    }
+
+    function spawnConfetti(container, count = 14) {
+      const colors = [
+        "#00f5ff",
+        "#ff00c3",
+        "#ffe66d",
+        "#4ade80",
+        "#38bdf8",
+      ];
+      const rect = container.getBoundingClientRect();
+      for (let i = 0; i < count; i++) {
+        const c = document.createElement("div");
+        c.className = "confetti";
+        c.style.left = `${Math.random() * rect.width}px`;
+        c.style.top = `${-10 - Math.random() * 20}px`;
+        c.style.backgroundColor = colors[i % colors.length];
+        c.style.opacity = 0.9;
+        c.style.animationDelay = `${Math.random() * 0.4}s`;
+        container.appendChild(c);
+        setTimeout(() => c.remove(), 1300);
+      }
+    }
+
+    function sanitizeNumber(value, defaultValue) {
+      const n = parseInt(value, 10);
+      if (isNaN(n) || n < 0) return defaultValue;
+      return n;
+    }
+
+    // ------------------------------
+    // API Calls
+    // ------------------------------
+    async function startGiveaway() {
+      const url = postUrlInput.value.trim();
+      if (!url) {
+        setStatus(startStatusDot, startStatusText, "error", "Please enter FB Post link.");
+        return;
+      }
+
+      setStatus(startStatusDot, startStatusText, "loading", "Calling /start endpoint…");
+
+      try {
+        const response = await fetch(`${API_BASE}/start`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "Accept": "application/json",
+          },
+          body: JSON.stringify({ post_url: url }),
+        });
+
+        const data = await response.json();
+
+        if (!response.ok) {
+          console.error("Start error:", data);
+          setStatus(startStatusDot, startStatusText, "error", `Error ${response.status}: Unable to get GW data.`);
+          postPreview.style.opacity = "0.4";
+          postPreview.style.filter = "grayscale(0.4)";
+          gwToken = null;
+          pickBtn.disabled = true;
+          return;
+        }
+
+        // Expect format: { status, message, data: { token, winners?, details { ... } } }
+        const root = data || {};
+        const d = root.data || {};
+        const details = d.details || {};
+        gwToken = d.token || null;
+
+        // Update preview UI
+        postImg.src = details.post_img || postImg.src;
+        ownerAvatar.src = (details.owner && details.owner.avatar) || ownerAvatar.src;
+        ownerFullName.textContent = (details.owner && details.owner.full_name) || "FB User";
+        ownerUsername.textContent = (details.owner && details.owner.username)
+          ? `@${details.owner.username}`
+          : "@facebook";
+        postCaption.textContent = details.post_caption || "No caption from API.";
+        likeCount.textContent = details.like_count ?? 0;
+        commentCount.textContent = details.comment_count ?? 0;
+        createdTime.textContent = details.created_time || "--/--/----";
+        ownerId.textContent = (details.owner && details.owner.id) || "N/A";
+
+        postPreview.style.opacity = "1";
+        postPreview.style.filter = "none";
+
+        if (gwToken) {
+          setStatus(startStatusDot, startStatusText, "ok", "Giveaway data loaded. Token ready ✔️");
+          setStatus(pickStatusDot, pickStatusText, "idle", "Set options & click Pick Winners.");
+          pickBtn.disabled = false;
+        } else {
+          setStatus(startStatusDot, startStatusText, "error", "Token not found in response.");
+          pickBtn.disabled = true;
+        }
+      } catch (err) {
+        console.error(err);
+        setStatus(startStatusDot, startStatusText, "error", "Network / CORS error calling API.");
+        gwToken = null;
+        pickBtn.disabled = true;
+      }
+    }
+
+    async function pickWinners() {
+      if (!gwToken) {
+        setStatus(pickStatusDot, pickStatusText, "error", "No token. Please get GW data first.");
+        return;
+      }
+
+      const winCount = sanitizeNumber(winnerCountInput.value, 1);
+      const mentionCount = sanitizeNumber(mentionCountInput.value, 0);
+
+      if (winCount <= 0) {
+        setStatus(pickStatusDot, pickStatusText, "error", "Winner amount must be greater than 0.");
+        return;
+      }
+
+      setStatus(pickStatusDot, pickStatusText, "loading", "Picking winners from /options…");
+      pickBtn.disabled = true;
+
+      try {
+        const response = await fetch(`${API_BASE}/options`, {
+          method: "PUT",
+          headers: {
+            "Content-Type": "application/json",
+            "Accept": "application/json",
+          },
+          body: JSON.stringify({
+            minimum_mention: mentionCount,
+            number_of_winner: winCount,
+            token: gwToken,
+          }),
+        });
+
+        const data = await response.json();
+
+        if (!response.ok) {
+          console.error("Options error:", data);
+          setStatus(
+            pickStatusDot,
+            pickStatusText,
+            "error",
+            `Error ${response.status}: Unable to pick winners.`
+          );
+          winnerSubLabel.textContent = "Error from API – see console.";
+          return;
+        }
+
+        const d = data.data || {};
+        const winners = d.winners || [];
+
+        renderWinners(winners);
+
+        if (winners.length > 0) {
+          setStatus(
+            pickStatusDot,
+            pickStatusText,
+            "ok",
+            `Winner list generated successfully (${winners.length}).`
+          );
+          spawnConfetti(document.querySelector(".glass"));
+        } else {
+          setStatus(pickStatusDot, pickStatusText, "ok", "No winners returned from API.");
+          winnerSubLabel.textContent = "No winners returned from API.";
+        }
+      } catch (err) {
+        console.error(err);
+        setStatus(pickStatusDot, pickStatusText, "error", "Network / CORS error calling /options.");
+      } finally {
+        pickBtn.disabled = false;
+      }
+    }
+
+    // ------------------------------
+    // Render winners
+    // ------------------------------
+    function renderWinners(winners) {
+      winnersGrid.innerHTML = "";
+      if (!Array.isArray(winners) || winners.length === 0) {
+        winnerSubLabel.textContent = "No winners yet.";
+        return;
+      }
+
+      winnerSubLabel.textContent = `Showing ${winners.length} winner(s) from API.`;
+
+      winners.forEach((winner, index) => {
+        const card = document.createElement("div");
+        card.className = "winner-card";
+
+        // Stagger animation
+        card.style.animationDelay = `${index * 0.07}s`;
+
+        const rank = document.createElement("div");
+        rank.className = "winner-rank";
+        rank.textContent = `#${index + 1}`;
+
+        const top = document.createElement("div");
+        top.className = "winner-top";
+
+        const avatarWrap = document.createElement("div");
+        avatarWrap.className = "winner-avatar";
+        const img = document.createElement("img");
+        img.src = winner.avatar || "https://via.placeholder.com/80x80/020617/4b5563?text=FB";
+        img.alt = winner.username || "Winner avatar";
+        avatarWrap.appendChild(img);
+
+        const nameWrap = document.createElement("div");
+        const nameEl = document.createElement("div");
+        nameEl.className = "winner-name";
+        nameEl.textContent = winner.username || "Unknown";
+
+        const usernameEl = document.createElement("div");
+        usernameEl.className = "winner-username";
+        usernameEl.textContent = winner.username ? `@${winner.username}` : "@facebook";
+
+        nameWrap.appendChild(nameEl);
+        nameWrap.appendChild(usernameEl);
+
+        top.appendChild(avatarWrap);
+        top.appendChild(nameWrap);
+
+        const textEl = document.createElement("div");
+        textEl.className = "winner-text";
+        textEl.innerHTML = `<span>“</span>${winner.text || ""}<span>”</span>`;
+
+        const footer = document.createElement("div");
+        footer.className = "winner-footer";
+        footer.innerHTML = `<span>Randomly picked by WASK API</span><span>🎉 Good luck!</span>`;
+
+        card.appendChild(rank);
+        card.appendChild(top);
+        card.appendChild(textEl);
+        card.appendChild(footer);
+
+        winnersGrid.appendChild(card);
+      });
+    }
+
+    // ------------------------------
+    // Events
+    // ------------------------------
+    document.querySelectorAll(".ripple").forEach((btn) => {
+      btn.addEventListener("click", createRipple);
+    });
+
+    fetchBtn.addEventListener("click", startGiveaway);
+    postUrlInput.addEventListener("keydown", (e) => {
+      if (e.key === "Enter") {
+        startGiveaway();
+      }
+    });
+
+    pickBtn.addEventListener("click", pickWinners);
+
+    // Initial subtle status
+    setStatus(startStatusDot, startStatusText, "idle", "Paste FB Post link and click Get GW Data.");
+    setStatus(pickStatusDot, pickStatusText, "idle", "Waiting for giveaway token…");
+  </script>
+</body>
+</html>
