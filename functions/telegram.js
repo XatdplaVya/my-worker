@@ -388,15 +388,25 @@ async function generateOutputsZip(env, options, progressCb) {
 if (!token) throw new Error("TELEGRAM_BOT_TOKEN is missing");
 async function tgCall(env, method, payload) {
   const token = String(env.TELEGRAM_BOT_TOKEN || "").trim();
-  
-  const res = await fetch(`https://api.telegram.org/bot${env.TELEGRAM_BOT_TOKEN}/${method}`, {
+  if (!token) throw new Error("TELEGRAM_BOT_TOKEN missing");
+
+  const url = new URL(`https://api.telegram.org/bot${token}/${method}`);
+
+  const res = await fetch(url.toString(), {
     method: "POST",
     headers: { "content-type": "application/json" },
     body: JSON.stringify(payload),
   });
-  const j = await res.json();
-  if (!j.ok) throw new Error(`${method} failed: ${JSON.stringify(j)}`);
-  return j;
+
+  // If Telegram returns HTML or non-JSON, capture it
+  const text = await res.text();
+  let data;
+  try { data = JSON.parse(text); } catch { data = { ok: false, raw: text }; }
+
+  if (!res.ok || !data.ok) {
+    throw new Error(`${method} failed: HTTP ${res.status} :: ${text}`);
+  }
+  return data;
 }
 const tgSend = (chat_id, env, text, extra={}) => tgCall(env, "sendMessage", { chat_id, text, ...extra });
 const tgEdit = (chat_id, message_id, env, text) => tgCall(env, "editMessageText", { chat_id, message_id, text });
