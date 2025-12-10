@@ -1,0 +1,9 @@
+{
+  "name": "plp",
+  "main": "src/index.js",
+  "compatibility_date": "2025-12-10",
+  "kv_namespaces": [{
+                    "binding": "KV_BINDING",
+                    "id": "66896d6fbed448f891d1166d1e9053ee"
+                 }]
+}
