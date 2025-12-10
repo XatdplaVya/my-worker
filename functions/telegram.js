@@ -1,5 +1,15 @@
-import { unzipSync, zipSync, strToU8, u8ToStr } from "fflate";
+import { unzipSync, zipSync } from "fflate";
 
+const enc = new TextEncoder();
+const dec = new TextDecoder();
+
+function strToU8(str) {
+  return enc.encode(str);
+}
+
+function u8ToStr(u8) {
+  return dec.decode(u8);
+}
 /**
  * Cloudflare Pages Functions + Telegram Bot
  * - Template .plp fetched from TEMPLATE_URL (GitHub raw public)
