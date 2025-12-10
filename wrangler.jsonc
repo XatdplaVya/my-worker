@@ -1,5 +1,5 @@
 {
-  "name": "plp",
+  "name": "my-worker",
   "main": "src/index.js",
   "compatibility_date": "2025-12-10",
   "kv_namespaces": [{
