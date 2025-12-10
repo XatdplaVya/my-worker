@@ -387,24 +387,30 @@ async function generateOutputsZip(env, options, progressCb) {
 // --- Telegram API helpers ---
 if (!token) throw new Error("TELEGRAM_BOT_TOKEN is missing");
 async function tgCall(env, method, payload) {
+async function tgCall(env, method, payload) {
   const token = String(env.TELEGRAM_BOT_TOKEN || "").trim();
   if (!token) throw new Error("TELEGRAM_BOT_TOKEN missing");
 
-  const url = new URL(`https://api.telegram.org/bot${token}/${method}`);
+  method = String(method || "").trim().replace(/^\/+/, "");
+  const url = `https://api.telegram.org/bot${token}/${method}`;
 
-  const res = await fetch(url.toString(), {
+  // ✅ IMPORTANT: log the real URL (hide most of token)
+  console.log("TG_URL:", url.replace(token, token.slice(0, 6) + "…"));
+
+  const res = await fetch(url, {
     method: "POST",
     headers: { "content-type": "application/json" },
-    body: JSON.stringify(payload),
+    body: JSON.stringify(payload ?? {}),
   });
 
-  // If Telegram returns HTML or non-JSON, capture it
   const text = await res.text();
+  console.log("TG_RAW:", text);
+
   let data;
   try { data = JSON.parse(text); } catch { data = { ok: false, raw: text }; }
 
   if (!res.ok || !data.ok) {
-    throw new Error(`${method} failed: HTTP ${res.status} :: ${text}`);
+    throw new Error(`sendMessage failed: ${text}`);
   }
   return data;
 }
