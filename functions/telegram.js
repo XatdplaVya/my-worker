@@ -33,6 +33,22 @@ function envFromEvent(_event) {
 }
 
 async function handleRequest(request, env) {
+  
+    const url = new URL(request.url);
+
+  if (url.pathname === "/debug") {
+    const token = String(env.TELEGRAM_BOT_TOKEN || "").trim();
+    return new Response(JSON.stringify({
+      hasToken: !!token,
+      tokenLen: token.length,
+      tokenStarts: token.slice(0, 6),   // only first 6 chars
+      hasKV: !!env.KV,
+      hasAdmin: !!String(env.ADMIN_CODE || "").trim(),
+      hasTemplate: !!String(env.TEMPLATE_URL || "").trim(),
+      hasSecret: !!String(env.WEBHOOK_SECRET || "").trim(),
+    }, null, 2), { headers: { "content-type": "application/json" } });
+  }
+
   if (request.method !== "POST") return new Response("OK");
 
   const secret = request.headers.get("X-Telegram-Bot-Api-Secret-Token");
