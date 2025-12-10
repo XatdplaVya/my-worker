@@ -368,7 +368,10 @@ async function generateOutputsZip(env, options, progressCb) {
 }
 
 // --- Telegram API helpers ---
+if (!token) throw new Error("TELEGRAM_BOT_TOKEN is missing");
 async function tgCall(env, method, payload) {
+  const token = String(env.TELEGRAM_BOT_TOKEN || "").trim();
+  
   const res = await fetch(`https://api.telegram.org/bot${env.TELEGRAM_BOT_TOKEN}/${method}`, {
     method: "POST",
     headers: { "content-type": "application/json" },
@@ -387,7 +390,9 @@ async function tgSendDocument(chatId, env, bytesU8, filename) {
   form.append("chat_id", String(chatId));
   form.append("document", new Blob([bytesU8], { type: "application/zip" }), filename);
 
-  const res = await fetch(`https://api.telegram.org/bot${env.TELEGRAM_BOT_TOKEN}/sendDocument`, {
+  const token = String(env.TELEGRAM_BOT_TOKEN || "").trim();
+  
+  const res = await fetch(`https://api.telegram.org/bot${token}/${method}`, {
     method: "POST",
     body: form,
   });
@@ -395,3 +400,13 @@ async function tgSendDocument(chatId, env, bytesU8, filename) {
   if (!j.ok) throw new Error(`sendDocument failed: ${JSON.stringify(j)}`);
   return j;
       }
+
+
+
+
+
+
+
+
+
+
