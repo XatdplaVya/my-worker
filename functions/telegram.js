@@ -2,34 +2,39 @@ import { unzipSync, zipSync } from "fflate";
 
 const enc = new TextEncoder();
 const dec = new TextDecoder();
+const strToU8 = (s) => enc.encode(s);
+const u8ToStr = (u) => dec.decode(u);
 
-function strToU8(str) {
-  return enc.encode(str);
-}
+// ---- Worker event handler (THIS FIXES error 10021) ----
+addEventListener("fetch", (event) => {
+  event.respondWith(handleRequest(event.request, envFromEvent(event)));
+});
 
-function u8ToStr(u8) {
-  return dec.decode(u8);
-}
 /**
- * Cloudflare Pages Functions + Telegram Bot
- * - Template .plp fetched from TEMPLATE_URL (GitHub raw public)
- * - Admin-only by /auth <ADMIN_CODE>
- * - Wizard via inline keyboard: count, first name mode, last name mode
- * - Generates multiple .plp files and returns outputs.zip as Telegram document
+ * Wrangler injects `env` only for module workers.
+ * But we're currently deployed in service-worker format (per warning),
+ * so we store env via a small hack: Wrangler will set globalThis.__env in some builds.
+ * To be safe, we also allow passing secrets via `globalThis` during runtime.
  *
- * ENV (Pages project settings):
- * - TELEGRAM_BOT_TOKEN (secret)
- * - ADMIN_CODE (secret)
- * - WEBHOOK_SECRET (secret, recommended)
- * - TEMPLATE_URL (plain var)
- *
- * KV binding name: KV
+ * BEST FIX is to convert to module worker with `export default { fetch(request, env) {} }`
+ * BUT service-worker also works if we have event handler + access to env bindings.
  */
+function envFromEvent(_event) {
+  // In many Wrangler deployments, bindings are available as global variables.
+  // KV binding: KV
+  // Secrets: TELEGRAM_BOT_TOKEN, ADMIN_CODE, WEBHOOK_SECRET, TEMPLATE_URL
+  return {
+    KV: globalThis.KV,
+    TELEGRAM_BOT_TOKEN: globalThis.TELEGRAM_BOT_TOKEN,
+    ADMIN_CODE: globalThis.ADMIN_CODE,
+    WEBHOOK_SECRET: globalThis.WEBHOOK_SECRET,
+    TEMPLATE_URL: globalThis.TEMPLATE_URL,
+  };
+}
 
-export async function onRequestPost(context) {
-  const { request, env, waitUntil } = context;
+async function handleRequest(request, env) {
+  if (request.method !== "POST") return new Response("OK");
 
-  // Verify Telegram secret token header (recommended)
   const secret = request.headers.get("X-Telegram-Bot-Api-Secret-Token");
   if (env.WEBHOOK_SECRET && secret !== env.WEBHOOK_SECRET) {
     return new Response("forbidden", { status: 403 });
@@ -38,7 +43,8 @@ export async function onRequestPost(context) {
   const update = await request.json().catch(() => null);
   if (!update) return new Response("bad request", { status: 400 });
 
-  waitUntil(handleUpdate(update, env));
+  // no waitUntil in service-worker env easily; just run
+  await handleUpdate(update, env);
   return new Response("OK");
 }
 
@@ -93,7 +99,7 @@ async function handleUpdate(update, env) {
     return sendCountMenu(chatId, env);
   }
 
-  // Wizard free-text steps
+  // Wizard text input steps
   const wizRaw = await env.KV.get(`wiz:${userId}`);
   if (wizRaw) {
     const wiz = JSON.parse(wizRaw);
@@ -171,7 +177,7 @@ async function onCallback(cbq, env) {
   }
 
   if (data.startsWith("first:")) {
-    const v = data.split(":")[1]; // random | fixed
+    const v = data.split(":")[1];
     wiz.options.firstMode = v;
     if (v === "fixed") {
       wiz.step = "fixed_first_input";
@@ -186,7 +192,7 @@ async function onCallback(cbq, env) {
   }
 
   if (data.startsWith("last:")) {
-    const v = data.split(":")[1]; // random | fixed
+    const v = data.split(":")[1];
     wiz.options.lastMode = v;
     if (v === "fixed") {
       wiz.step = "fixed_last_input";
@@ -202,8 +208,6 @@ async function onCallback(cbq, env) {
 
   if (data === "do_generate") {
     await tgAnswerCb(cbq.id, env, "Generating…");
-
-    // status message animation via edits
     const status = await tgSend(chatId, env, "⏳ Fetching template from GitHub…");
     const statusMsgId = status?.result?.message_id;
 
@@ -232,105 +236,54 @@ async function onCallback(cbq, env) {
   await tgAnswerCb(cbq.id, env, "OK");
 }
 
-// -----------------------------
-// Menus
-// -----------------------------
+// --- Menus ---
 function sendCountMenu(chatId, env) {
   return tgSend(chatId, env, "Choose how many files:", {
-    reply_markup: {
-      inline_keyboard: [
-        [{ text: "10", callback_data: "count:10" }, { text: "25", callback_data: "count:25" }, { text: "50", callback_data: "count:50" }],
-        [{ text: "100", callback_data: "count:100" }, { text: "Custom (1-200)", callback_data: "count:custom" }],
-      ],
-    },
+    reply_markup: { inline_keyboard: [
+      [{ text: "10", callback_data: "count:10" }, { text: "25", callback_data: "count:25" }, { text: "50", callback_data: "count:50" }],
+      [{ text: "100", callback_data: "count:100" }, { text: "Custom (1-200)", callback_data: "count:custom" }],
+    ]},
   });
 }
-
 function sendFirstModeMenu(chatId, env) {
   return tgSend(chatId, env, "First name mode:", {
-    reply_markup: {
-      inline_keyboard: [
-        [{ text: "Random", callback_data: "first:random" }],
-        [{ text: "Fixed (type)", callback_data: "first:fixed" }],
-      ],
-    },
+    reply_markup: { inline_keyboard: [
+      [{ text: "Random", callback_data: "first:random" }],
+      [{ text: "Fixed (type)", callback_data: "first:fixed" }],
+    ]},
   });
 }
-
 function sendLastModeMenu(chatId, env) {
   return tgSend(chatId, env, "Last name mode (surname):", {
-    reply_markup: {
-      inline_keyboard: [
-        [{ text: "Random", callback_data: "last:random" }],
-        [{ text: "Fixed (type)", callback_data: "last:fixed" }],
-      ],
-    },
+    reply_markup: { inline_keyboard: [
+      [{ text: "Random", callback_data: "last:random" }],
+      [{ text: "Fixed (type)", callback_data: "last:fixed" }],
+    ]},
   });
 }
-
 function sendConfirm(chatId, env, options) {
   const summary =
-    `✅ Ready\n` +
-    `• count: ${options.count}\n` +
-    `• first: ${options.firstMode}${options.firstMode === "fixed" ? ` (${options.fixedFirst})` : ""}\n` +
-    `• last: ${options.lastMode}${options.lastMode === "fixed" ? ` (${options.fixedLast})` : ""}\n` +
-    `• text2: ${options.text2}\n\n` +
-    `Press Generate:`;
-
+    `✅ Ready\n• count: ${options.count}\n• first: ${options.firstMode}${options.firstMode==="fixed" ? ` (${options.fixedFirst})`:""}\n`+
+    `• last: ${options.lastMode}${options.lastMode==="fixed" ? ` (${options.fixedLast})`:""}\n• text2: ${options.text2}\n\nPress Generate:`;
   return tgSend(chatId, env, summary, {
-    reply_markup: {
-      inline_keyboard: [
-        [{ text: "🚀 Generate", callback_data: "do_generate" }],
-        [{ text: "Cancel", callback_data: "cancel" }],
-      ],
-    },
+    reply_markup: { inline_keyboard: [
+      [{ text: "🚀 Generate", callback_data: "do_generate" }],
+      [{ text: "Cancel", callback_data: "cancel" }],
+    ]},
   });
 }
 
-// -----------------------------
-// Generation logic
-// -----------------------------
-const FIRST_NAMES = [
-  "Ahsan","Arafat","Arif","Asif","Aziz","Fahim","Farhan","Faysal","Hasan","Imran","Ismail",
-  "Jahid","Jamal","Kamal","Mahmud","Mehedi","Moin","Monir","Naim","Nayeem","Rafi","Rahim",
-  "Raihan","Rashed","Rifat","Ridoy","Sabbir","Saif","Sajid","Sakib","Salman","Sami","Shafi",
-  "Shahriar","Shakil","Tanvir","Tareq","Yasin","Zahid","Zubair","Nafis","Fardin","Tahmid",
-  "Muntasir","Aminul","Shihab","Rakib","Shuvo","Sohel","Mahfuz","Anwar","Ruhul","Bashir",
-  "Kabir","Ibrahim","Hridoy","Parvez","Sifat","Towhid","Shadman",
-  "Ayesha","Farzana","Faria","Fariha","Jannat","Jui","Lamia","Maliha","Mim","Mitu","Nafisa",
-  "Nusrat","Purnima","Raisa","Rima","Ritu","Sabina","Sadia","Sanjida","Shirin","Sumaiya",
-  "Tahmina","Tanjila","Tania","Zannat","Jahanara","Mariya","Muna","Rukaiya","Sultana",
-  "Sharmin","Sabrina","Nabila","Nowrin","Umme","Rabeya","Moushumi","Taslima","Afsana",
-  "Ishika","Tanisha","Anannya","Sreya","Puja","Madhuri","Nandini","Rituparna","Oishi",
-  "Anik","Aritra","Arpan","Debashish","Dip","Niloy","Pranto","Rupok","Sourav","Subrata",
-  "Rony","Joy","Sohan","Ayon","Pritom","Raiyan","Sanjit"
-];
+// --- Generation ---
+const FIRST_NAMES = ["Ahsan","Arafat","Arif","Asif","Aziz","Fahim","Farhan","Hasan","Imran","Jahid","Kamal","Mahmud","Mehedi","Naim","Rafi","Rahim","Rashed","Sabbir","Saif","Sajid","Sakib","Tanvir","Tareq","Yasin","Zahid","Ayesha","Farzana","Lamia","Maliha","Nafisa","Nusrat","Raisa","Sabina","Sadia","Shirin","Sumaiya","Tahmina","Tania","Zannat"];
+const LAST_NAMES  = ["Ahmed","Akter","Ali","Amin","Bhuiyan","Chowdhury","Haque","Hasan","Hossain","Islam","Jahan","Khan","Miah","Mollah","Rahman","Rashid","Sarker","Siddique","Sikder","Sultana","Uddin","Das","Dey","Roy","Saha","Mondal","Paul","Biswas"];
 
-const LAST_NAMES = [
-  "Ahmed","Akter","Ali","Amin","Arefin","Bhuiyan","Chowdhury","Faruque","Haque","Hasan",
-  "Hossain","Islam","Jahan","Khan","Mahmood","Miah","Mollah","Mostafa","Rahman",
-  "Rashid","Sarker","Siddique","Sikder","Sultana","Uddin","Talukder","Sheikh","Matin",
-  "Karim","Kazi","Sayeed","Nizam","Alam","Kabir","Mamun","Shah","Naser","Tasnim",
-  "Das","Dey","Roy","Saha","Sarkar","Mondal","Paul","Biswas","Barman","Ghosh",
-  "Chakraborty","Bhattacharya","Banerjee","Mitra","Sen","Deb","Datta","Pal","Majumder"
-];
-
-function rand(arr) { return arr[Math.floor(Math.random() * arr.length)]; }
-
-function randomText1() {
-  const xxx = String(Math.floor(Math.random() * 1000)).padStart(3, "0");
-  const yyy = String(Math.floor(Math.random() * 1000)).padStart(3, "0");
-  return `451-${xxx}-${yyy}`;
-}
-
-function randomText3() {
-  const n = String(Math.floor(Math.random() * 1000000)).padStart(6, "0");
-  return `NSU-RCPT-${n}F`;
-}
+const rand = (a) => a[Math.floor(Math.random()*a.length)];
+const randomText1 = () => `451-${String(Math.floor(Math.random()*1000)).padStart(3,"0")}-${String(Math.floor(Math.random()*1000)).padStart(3,"0")}`;
+const randomText3 = () => `NSU-RCPT-${String(Math.floor(Math.random()*1000000)).padStart(6,"0")}F`;
 
 function updateIntervals(layer, newText) {
-  for (const k of ["textTextColor", "textTextFont"]) {
-    const block = layer[k];
+  for (const k of ["textTextColor","textTextFont"]) {
+    const block = layer?.[k];
     if (block && typeof block === "object") {
       for (const intervalKey of Object.keys(block)) {
         const interval = block[intervalKey];
@@ -342,49 +295,46 @@ function updateIntervals(layer, newText) {
   }
 }
 
-function sanitizeFilename(name) {
-  name = (name || "").trim().replace(/[\\/:*?"<>|]+/g, "");
-  name = name.replace(/\s+/g, " ");
-  if (!name) name = "output";
-  if (name.length > 80) name = name.slice(0, 80);
-  return name;
-}
-
 function titleCase(s) {
   s = (s || "").trim();
   if (!s) return "";
-  return s.split(/\s+/).map(x => x.charAt(0).toUpperCase() + x.slice(1).toLowerCase()).join(" ");
+  return s.split(/\s+/).map(x => x[0]?.toUpperCase() + x.slice(1).toLowerCase()).join(" ");
+}
+
+function sanitizeFilename(name) {
+  name = (name || "").trim().replace(/[\\/:*?"<>|]+/g, "").replace(/\s+/g, " ");
+  if (!name) name = "output";
+  return name.length > 80 ? name.slice(0, 80) : name;
 }
 
 async function fetchTemplateBytes(env) {
   if (!env.TEMPLATE_URL) throw new Error("TEMPLATE_URL not set");
-  const res = await fetch(env.TEMPLATE_URL, { cf: { cacheTtl: 3600, cacheEverything: true } });
-  if (!res.ok) throw new Error(`Failed to fetch template: ${res.status}`);
+  const res = await fetch(env.TEMPLATE_URL);
+  if (!res.ok) throw new Error(`Template fetch failed: ${res.status}`);
   return await res.arrayBuffer();
 }
 
 async function generateOutputsZip(env, options, progressCb) {
-  await progressCb("⏳ Downloading template (.plp) from GitHub…");
+  await progressCb("⏳ Downloading template (.plp) …");
   const templateBytes = await fetchTemplateBytes(env);
 
   const files = unzipSync(new Uint8Array(templateBytes));
   if (!files["data.plab"]) throw new Error("Template missing data.plab");
 
   const baseProj = JSON.parse(u8ToStr(files["data.plab"]));
-  const baseBundle = baseProj.objectsBundle || {};
-  for (const k of ["text0", "text1", "text2", "text3"]) {
-    if (!baseBundle[k]) throw new Error(`Template missing layer ${k}`);
+  for (const k of ["text0","text1","text2","text3"]) {
+    if (!baseProj.objectsBundle?.[k]) throw new Error(`Template missing layer ${k}`);
   }
 
-  const outZipEntries = {};
+  const out = {};
   const used = new Set();
 
-  for (let i = 1; i <= options.count; i++) {
+  for (let i=1; i<=options.count; i++) {
     const proj = structuredClone(baseProj);
     const b = proj.objectsBundle;
 
-    const first = options.firstMode === "fixed" ? titleCase(options.fixedFirst) : rand(FIRST_NAMES);
-    const last = options.lastMode === "fixed" ? titleCase(options.fixedLast || "Ahmed") : rand(LAST_NAMES);
+    const first = options.firstMode==="fixed" ? titleCase(options.fixedFirst) : rand(FIRST_NAMES);
+    const last  = options.lastMode==="fixed" ? titleCase(options.fixedLast||"Ahmed") : rand(LAST_NAMES);
 
     const fullName = `${first} ${last}`.trim();
     const t1 = randomText1();
@@ -396,47 +346,41 @@ async function generateOutputsZip(env, options, progressCb) {
     b.text2.textTextString = t2;      updateIntervals(b.text2, t2);
     b.text3.textTextString = t3;      updateIntervals(b.text3, t3);
 
-    const outFiles = { ...files };
-    outFiles["data.plab"] = strToU8(JSON.stringify(proj, null, 0));
-
+    const outFiles = { ...files, ["data.plab"]: strToU8(JSON.stringify(proj)) };
     const plpU8 = zipSync(outFiles, { level: 6 });
 
     let base = sanitizeFilename(fullName);
     let fileName = `${base}.plp`;
     if (used.has(fileName)) {
-      let n = 2;
-      while (used.has(`${base}_${n}.plp`)) n++;
+      let n=2; while (used.has(`${base}_${n}.plp`)) n++;
       fileName = `${base}_${n}.plp`;
     }
     used.add(fileName);
+    out[fileName] = plpU8;
 
-    outZipEntries[fileName] = plpU8;
-
-    if (i === 1 || i === options.count || i % Math.max(1, Math.floor(options.count / 10)) === 0) {
+    if (i===1 || i===options.count || i % Math.max(1, Math.floor(options.count/10))===0) {
       await progressCb(`✨ Generating… ${i}/${options.count}`);
     }
   }
 
   await progressCb("📦 Packing outputs.zip…");
-  return zipSync(outZipEntries, { level: 6 });
+  return zipSync(out, { level: 6 });
 }
 
-// -----------------------------
-// Telegram API helpers
-// -----------------------------
-async function tgSend(chatId, env, text, extra = {}) {
-  const payload = { chat_id: chatId, text, ...extra };
-  return tgCall(env, "sendMessage", payload);
+// --- Telegram API helpers ---
+async function tgCall(env, method, payload) {
+  const res = await fetch(`https://api.telegram.org/bot${env.TELEGRAM_BOT_TOKEN}/${method}`, {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify(payload),
+  });
+  const j = await res.json();
+  if (!j.ok) throw new Error(`${method} failed: ${JSON.stringify(j)}`);
+  return j;
 }
-
-async function tgEdit(chatId, messageId, env, text) {
-  if (!messageId) return;
-  return tgCall(env, "editMessageText", { chat_id: chatId, message_id: messageId, text });
-}
-
-async function tgAnswerCb(callbackQueryId, env, text) {
-  return tgCall(env, "answerCallbackQuery", { callback_query_id: callbackQueryId, text, show_alert: false });
-}
+const tgSend = (chat_id, env, text, extra={}) => tgCall(env, "sendMessage", { chat_id, text, ...extra });
+const tgEdit = (chat_id, message_id, env, text) => tgCall(env, "editMessageText", { chat_id, message_id, text });
+const tgAnswerCb = (id, env, text) => tgCall(env, "answerCallbackQuery", { callback_query_id: id, text, show_alert: false });
 
 async function tgSendDocument(chatId, env, bytesU8, filename) {
   const form = new FormData();
@@ -450,15 +394,4 @@ async function tgSendDocument(chatId, env, bytesU8, filename) {
   const j = await res.json();
   if (!j.ok) throw new Error(`sendDocument failed: ${JSON.stringify(j)}`);
   return j;
-}
-
-async function tgCall(env, method, payload) {
-  const res = await fetch(`https://api.telegram.org/bot${env.TELEGRAM_BOT_TOKEN}/${method}`, {
-    method: "POST",
-    headers: { "content-type": "application/json" },
-    body: JSON.stringify(payload),
-  });
-  const j = await res.json();
-  if (!j.ok) throw new Error(`${method} failed: ${JSON.stringify(j)}`);
-  return j;
-    }
+      }
