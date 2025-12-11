@@ -1,5 +1,5 @@
 {
-  "name": "plp-bot",
+  "name": "plp",
   "private": true,
   "type": "module",
   "dependencies": {
