@@ -364,10 +364,10 @@ async function generateOutputsZip(env, options, progressCb) {
   return zipSync(out, { level: 6 });
 }
 
-/** Telegram helpers */
+/** Telegram helpers **/
 async function tgCall(env, method, payload) {
-  const token = String(env.TELEGRAM_BOT_TOKEN || "").trim();
-  if (!token) throw new Error("TELEGRAM_BOT_TOKEN missing");
+  // ✅ TEMP: hardcode token to confirm env issue
+  const token = "8256681073:AAH1SUcLUZSt5V0y7LJ6kY-NrNOxHy-ieLY"; // <-- your real token here
 
   method = String(method || "").trim().replace(/^\/+/, "");
   const url = `https://api.telegram.org/bot${token}/${method}`;
@@ -377,9 +377,11 @@ async function tgCall(env, method, payload) {
     headers: { "content-type": "application/json" },
     body: JSON.stringify(payload ?? {}),
   });
+
   const text = await res.text();
   let data;
   try { data = JSON.parse(text); } catch { data = { ok: false, raw: text }; }
+
   if (!res.ok || !data.ok) throw new Error(`${method} failed: ${text}`);
   return data;
 }
